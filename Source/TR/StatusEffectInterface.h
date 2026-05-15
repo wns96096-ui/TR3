@@ -2,17 +2,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Enum/enum.h"
 #include "UObject/Interface.h"
 #include "StatusEffectInterface.generated.h"
-UENUM(BlueprintType)
-enum class EStatusEffectType : uint8
-{
-	Stun,
-	Slow,
-	Down,
-	Electric,
-	
-};
 
 UINTERFACE(BlueprintType)
 class TR_API UStatusEffectReceiver : public  UInterface
@@ -27,6 +19,6 @@ class TR_API IStatusEffectReceiver
 public:
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable, Category="Effect Type")
 	void ApplyStatusEffect(
-		EStatusEffectType EffectType
+		StatusType EffectType
 	);
 };
