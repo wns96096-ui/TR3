@@ -27,7 +27,13 @@ const FVector& Atrap_base::GetInitialSpawnLocation() const
 	return InitialSpawnLocation;
 }
 
+void Atrap_base::MoveRotate()
+{
+
 	
+	
+}
+
 void Atrap_base::MoveObject(float DeltaTime)
 {
 	if (!IsMove)
@@ -44,48 +50,36 @@ void Atrap_base::MoveObject(float DeltaTime)
 
 	ElapsedMoveTime += DeltaTime;
 
+	const bool bDurationEnded = ElapsedMoveTime >= MoveDuration;
+	const float MoveDeltaTime = bDurationEnded
+		? DeltaTime - (ElapsedMoveTime - MoveDuration)
+		: DeltaTime;
+
 	const FVector CurrentLocation = GetActorLocation();
-	const bool bUseTargetDistance = TargetDistance > 0.0f;
-	const FVector MoveDirection = TargetVelocity.GetSafeNormal();
-	const FVector EffectiveVelocity = bUseTargetDistance
-		? MoveDirection * (TargetDistance / MoveDuration)
-		: TargetVelocity;
-	const FVector NextLocation = CurrentLocation + (EffectiveVelocity * DeltaTime);
+	FVector NextLocation = CurrentLocation + (TargetVelocity * MoveDeltaTime);
 
-	if (bUseTargetDistance)
+	if (bBounceX)
 	{
-		const float CurrentDistance = FVector::Dist(StartLocation, NextLocation);
-		if (CurrentDistance >= TargetDistance)
+		if (NextLocation.X <= MinX)
 		{
-			const FVector TargetLocation = StartLocation + (MoveDirection * TargetDistance);
-			SetActorLocation(TargetLocation);
-
-			if (IsLoop)
-			{
-				StartLocation = TargetLocation;
-				ElapsedMoveTime = 0.0f;
-				TargetVelocity = -TargetVelocity;
-			}
-			else
-			{
-				IsMove = false;
-				SetActorTickEnabled(false);
-			}
-
-			return;
+			NextLocation.X = MinX;
+			TargetVelocity.X = FMath::Abs(TargetVelocity.X);
+		}
+		else if (NextLocation.X >= MaxX)
+		{
+			NextLocation.X = MaxX;
+			TargetVelocity.X = -FMath::Abs(TargetVelocity.X);
 		}
 	}
-	else if (ElapsedMoveTime >= MoveDuration)
+
+	SetActorLocation(NextLocation);
+
+	if (bDurationEnded)
 	{
-		const float OvershootTime = ElapsedMoveTime - MoveDuration;
-		const float ValidDeltaTime = DeltaTime - OvershootTime;
-
-		SetActorLocation(CurrentLocation + (TargetVelocity * ValidDeltaTime));
-
 		if (IsLoop)
 		{
 			ElapsedMoveTime = 0.0f;
-			TargetVelocity = -TargetVelocity;
+			TargetVelocity.Y = -TargetVelocity.Y;
 		}
 		else
 		{
@@ -95,8 +89,6 @@ void Atrap_base::MoveObject(float DeltaTime)
 
 		return;
 	}
-
-	SetActorLocation(NextLocation);
 }
 
 	void Atrap_base::OnObstacleBeginOverlap(
@@ -152,12 +144,11 @@ void Atrap_base::MoveObject(float DeltaTime)
 		SetActorTickEnabled(IsMove);
 
 		const FString MoveDebugMessage = FString::Printf(
-			TEXT("%s BeginPlay: IsMove=%s TargetVelocity=%s MoveDuration=%.2f TargetDistance=%.2f TickEnabled=%s"),
+			TEXT("%s BeginPlay: IsMove=%s TargetVelocity=%s MoveDuration=%.2f TickEnabled=%s"),
 			*GetName(),
 			IsMove ? TEXT("true") : TEXT("false"),
 			*TargetVelocity.ToString(),
 			MoveDuration,
-			TargetDistance,
 			IsActorTickEnabled() ? TEXT("true") : TEXT("false")
 		);
 		UE_LOG(LogTemp, Warning, TEXT("%s"), *MoveDebugMessage);
@@ -167,4 +158,3 @@ void Atrap_base::MoveObject(float DeltaTime)
 			GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Cyan, MoveDebugMessage);
 		}
 	}
-
