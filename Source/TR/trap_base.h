@@ -141,6 +141,9 @@ protected:
 			bool bFromSweep,
 			const FHitResult& SweepResult
 			);
+
+	UFUNCTION(BlueprintImplementableEvent, Category="Trap")
+	void OnTrapTriggered(AActor* TriggerActor);
 	/*********************************************************************************/
 	virtual void Tick(float DeltaTime) override;
 };
