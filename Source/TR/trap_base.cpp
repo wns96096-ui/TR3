@@ -4,6 +4,7 @@
 #include "Components/BoxComponent.h"
 #include "Engine/Engine.h"
 #include "StatusEffectInterface.h"
+#include "TrapDestroyInterface.h"
 
 
 Atrap_base::Atrap_base()
@@ -91,70 +92,72 @@ void Atrap_base::MoveObject(float DeltaTime)
 	}
 }
 
-	void Atrap_base::OnObstacleBeginOverlap(
-		  UPrimitiveComponent* OverlappedComponent,
-		  AActor* OtherActor,
-		  UPrimitiveComponent* OtherComp,
-		  int32 OtherBodyIndex,
-		  bool bFromSweep,
-		  const FHitResult& SweepResult
-	)
+void Atrap_base::OnObstacleBeginOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult
+)
+{
+	if (!OtherActor || OtherActor == this)
 	{
-		if (!OtherActor || OtherActor == this)
-		{
-			return;
-		}
+		return;
+	}
 
-		GEngine->AddOnScreenDebugMessage(
-				-1,
-				2.0f,
-				FColor::Yellow,
-				FString::Printf(TEXT("Overlap: %s"), *OtherActor->GetName())
-		);
-
-		if
-	(OtherActor->GetClass()->ImplementsInterface(UStatusEffectReceiver::StaticClass()))
+	if (GEngine)
 	{
 		GEngine->AddOnScreenDebugMessage(
-				-1,
-				2.0f,
-				FColor::Green,
-				TEXT("Interface Found")
+			-1,
+			2.0f,
+			FColor::Yellow,
+			FString::Printf(TEXT("Overlap: %s"), *OtherActor->GetName())
 		);
+	}
 
+	if (OtherActor->GetClass()->ImplementsInterface(UStatusEffectReceiver::StaticClass()))
+	{
 		IStatusEffectReceiver::Execute_ApplyStatusEffect(
-				OtherActor,
-				EffectType
+			OtherActor,
+			EffectType
 		);
 	}
-	}
 
-	void Atrap_base::Tick(float DeltaTime)
+	if (OtherActor->GetClass()->ImplementsInterface(UTrapDestroyReceiver::StaticClass()))
 	{
-		Super::Tick(DeltaTime);
-		MoveObject(DeltaTime);
+		ITrapDestroyReceiver::Execute_OnTrapDestroyTriggered(OtherActor, this);
+		OnTrapTriggered(OtherActor);
+		Destroy();
 	}
+}
 
-	void Atrap_base::BeginPlay()
+void Atrap_base::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	MoveObject(DeltaTime);
+}
+
+void Atrap_base::BeginPlay()
+{
+	Super::BeginPlay();
+
+	StartLocation = GetActorLocation();
+	InitialSpawnLocation = StartLocation;
+	SetActorTickEnabled(IsMove);
+
+	const FString MoveDebugMessage = FString::Printf(
+		TEXT("%s BeginPlay: IsMove=%s TargetVelocity=%s MoveDuration=%.2f TickEnabled=%s"),
+		*GetName(),
+		IsMove ? TEXT("true") : TEXT("false"),
+		*TargetVelocity.ToString(),
+		MoveDuration,
+		IsActorTickEnabled() ? TEXT("true") : TEXT("false")
+	);
+	UE_LOG(LogTemp, Warning, TEXT("%s"), *MoveDebugMessage);
+
+	if (GEngine)
 	{
-		Super::BeginPlay();
-
-		StartLocation = GetActorLocation();
-		InitialSpawnLocation = StartLocation;
-		SetActorTickEnabled(IsMove);
-
-		const FString MoveDebugMessage = FString::Printf(
-			TEXT("%s BeginPlay: IsMove=%s TargetVelocity=%s MoveDuration=%.2f TickEnabled=%s"),
-			*GetName(),
-			IsMove ? TEXT("true") : TEXT("false"),
-			*TargetVelocity.ToString(),
-			MoveDuration,
-			IsActorTickEnabled() ? TEXT("true") : TEXT("false")
-		);
-		UE_LOG(LogTemp, Warning, TEXT("%s"), *MoveDebugMessage);
-
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Cyan, MoveDebugMessage);
-		}
+		GEngine->AddOnScreenDebugMessage(-1, 4.0f, FColor::Cyan, MoveDebugMessage);
 	}
+}
